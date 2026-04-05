@@ -1,0 +1,7 @@
+subject,0_Baseline,1_Grounding,2_Rule Extra,3_Chain of L,4_Negative E,5_Answer Ver,6_Self-Consi,7_Rule Extra
+CONST. LAW,0.874,0.874,0.884,0.895,0.919,,,
+CONTRACTS,0.531,0.54,0.655,0.735,0.754,,,
+CRIM. LAW,0.539,0.573,0.674,0.73,0.714,,,
+EVIDENCE,0.624,0.57,0.656,0.796,0.75,,,
+REAL PROP.,0.478,0.489,0.62,0.707,0.646,,,
+TORTS,0.536,0.491,0.67,0.804,0.753,,,
