@@ -39,22 +39,20 @@ The mechanism is documented in the post-rationalization literature (arXiv:2412.1
 
 ### Model & Infrastructure
 
-**Model:** Llama 3.3 70B (Q4_K_M quantization) served locally via [Ollama](https://ollama.com) at `http://localhost:11434/v1`
-- OpenAI-compatible API endpoint
-- ~200s per question on available hardware (sequential, no batching)
+**Model:** Llama 3.3 70B via [Groq](https://groq.com) free tier (`llama-3.3-70b-versatile`)
+- OpenAI-compatible API endpoint (`https://api.groq.com/openai/v1`)
+- Requires `GROQ_API_KEY` in environment or `.env` file
 - **Temperature:** 0 for all conditions except Condition 6 (temp=0.7)
 - **Max tokens:** 150 for single-answer conditions (0, 1, 6); 600 for reasoning conditions (3, 4); 300 per call for two-stage conditions (2, 5, 7)
 
-> Note: an earlier pilot (N=117, `results/archive_test_split_117/`) was run on GPT-4o-mini. All main results use Llama 3.3 70B.
+> Note: an earlier pilot (N=117, `results/archive_test_split_117/`) was run on GPT-4o-mini. All main results use Llama 3.3 70B via Groq.
 
 ### Prompting Modes
 
 Two modes, controlled by `--zero-shot` / `--few-shot` flag:
 
 - **Zero-shot:** No examples. Prompt structure alone is the intervention variable. N=1,195.
-- **Few-shot:** 2 fixed worked examples injected into the system prompt (1 Torts + 1 Contracts question, sampled seed=42 from train split, not in evaluation set). Examples show correct passage-grounding and reasoning steps. Conditions 0–4 at N=1,195; conditions 5–7 at **N=200** (see note below).
-
-> **Why N=200 for few-shot conditions 5–7:** At ~200s/question on the local hardware, running conditions 5 (2 API calls/question), 6 (3 calls), and 7 (2 calls) on the full 1,195 questions would require ~20 days of continuous compute. We applied `--limit 200`, which restricts evaluation to the **first 200 rows of the dataset in its stored order** (no shuffling or stratification — just `df.head(200)` after `reset_index`). This yields ~3 days of runtime and is sufficient for directional comparison. Condition 4 was already at 874/1,195 rows when the limit decision was made; since 874 ≥ 200 the resume logic skips it, so Condition 4 is retained at its full N=874.
+- **Few-shot:** 2 fixed worked examples injected into the system prompt (1 Torts + 1 Contracts question, sampled seed=42 from train split, not in evaluation set). Examples show correct passage-grounding and reasoning steps. All conditions at N=1,195.
 
 ### The 8 Conditions
 
@@ -143,8 +141,8 @@ results/
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
-# Ollama must be running locally with llama3.3:70b pulled
-# ollama pull llama3.3:70b
+# Add your Groq API key (free tier at console.groq.com)
+echo "GROQ_API_KEY=your_key_here" > .env
 
 # Verify prompt formatting (1 real API call)
 python run_experiment.py --dry-run

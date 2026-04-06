@@ -2,11 +2,14 @@
 """
 run_experiment.py — Entry point for the MBE generation-stage hallucination experiment.
 
+Backend: Groq API (llama-3.3-70b-versatile). Requires GROQ_API_KEY env var or .env file.
+
 Usage:
   python run_experiment.py --dry-run              # verify prompt formatting, no API calls
   python run_experiment.py --conditions 0 1       # run specific conditions
   python run_experiment.py                        # run all 8 conditions
   python run_experiment.py --summary-only         # re-run evaluator on existing CSVs
+  python run_experiment.py --few-shot             # run with few-shot examples
 """
 
 import argparse
@@ -71,7 +74,7 @@ def load_dataset():
 
 # ── Dry run ──────────────────────────────────────────────────────────────────
 
-def do_dry_run(df_test, system_prompt, client, model="llama3.3:70b"):
+def do_dry_run(df_test, system_prompt, client, model="llama-3.3-70b-versatile"):
     print("\n" + "=" * 80)
     print("DRY RUN — Condition 0 prompts + logprob verification (1 real API call)")
     print("=" * 80)
@@ -166,15 +169,6 @@ def main():
         default=None,
         help="Limit evaluation to first N questions (for testing)",
     )
-    parser.add_argument(
-        "--groq",
-        action="store_true",
-        help=(
-            "Use Groq API instead of local Ollama. "
-            "Requires GROQ_API_KEY env var or a .env file with GROQ_API_KEY=... "
-            "Model: llama-3.3-70b-versatile. Results saved under results/<mode>_groq/."
-        ),
-    )
     args = parser.parse_args()
 
     df = load_dataset()
@@ -204,29 +198,23 @@ def main():
         run_evaluator(results_dir=results_dir)
         return
 
-    # API client needed for dry-run (logprob verification) and full run
+    # API client — Groq (llama-3.3-70b-versatile)
     from openai import OpenAI
 
-    if args.groq:
-        api_key = os.environ.get("GROQ_API_KEY", "")
-        if not api_key:
-            # Fall back to .env file
-            env_path = os.path.join(os.path.dirname(__file__), ".env")
-            if os.path.exists(env_path):
-                with open(env_path) as f:
-                    for line in f:
-                        if line.startswith("GROQ_API_KEY="):
-                            api_key = line.split("=", 1)[1].strip()
-                            break
-        if not api_key:
-            raise SystemExit("ERROR: GROQ_API_KEY not set. Export it or add to .env.")
-        client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
-        model = "llama-3.3-70b-versatile"
-        print(f"Backend: Groq ({model})")
-    else:
-        client = OpenAI(api_key="ollama", base_url="http://localhost:11434/v1")
-        model = "llama3.3:70b"
-        print(f"Backend: Ollama ({model})")
+    api_key = os.environ.get("GROQ_API_KEY", "")
+    if not api_key:
+        env_path = os.path.join(os.path.dirname(__file__), ".env")
+        if os.path.exists(env_path):
+            with open(env_path) as f:
+                for line in f:
+                    if line.startswith("GROQ_API_KEY="):
+                        api_key = line.split("=", 1)[1].strip()
+                        break
+    if not api_key:
+        raise SystemExit("ERROR: GROQ_API_KEY not set. Export it or add to .env.")
+    client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+    model = "llama-3.3-70b-versatile"
+    print(f"Backend: Groq ({model})")
 
     if args.dry_run:
         do_dry_run(df_test, system_prompt, client, model=model)

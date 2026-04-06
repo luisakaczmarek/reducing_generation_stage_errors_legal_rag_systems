@@ -26,7 +26,7 @@ time — a generation-stage ceiling independent of retrieval quality
   - `idx`: unique question ID (e.g. mbe_569)
 
 ## Experimental Setup
-- Model: gpt-4o-mini (OpenAI API)
+- Model: llama-3.3-70b-versatile (Groq API, free tier)
 - Temperature: 0 for all conditions except self-consistency (0.7)
 - Evaluation set: full dataset (1,195 questions, all splits)
 - Prompting: zero-shot — no few-shot examples in any condition
@@ -94,7 +94,7 @@ modes if Stage 1 fabricates.
   if pd.notna(row['prompt']): prepend "FACT PATTERN:\n{prompt}\n\n"
 
 ## API Configuration
-- Model: gpt-4o-mini
+- Model: llama-3.3-70b-versatile (Groq)
 - Temperature: 0 (except condition 6: 0.7)
 - Max tokens: 150 for single-answer conditions (0, 1, 6)
               600 for reasoning conditions (3, 4)
