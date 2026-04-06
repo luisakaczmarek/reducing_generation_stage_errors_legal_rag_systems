@@ -56,16 +56,39 @@ Two modes, controlled by `--zero-shot` / `--few-shot` flag:
 
 ### The 8 Conditions
 
-| ID | Name | Calls | Strategy |
-|----|------|-------|----------|
-| 0 | Baseline | 1 | Direct answer instruction — establishes residual failure rate |
-| 1 | Passage-Grounding Constraint | 1 | Explicit instruction to rely exclusively on the passage; tests whether post-rationalization can be reduced by instruction alone |
-| 2 | Rule Extraction | 2 | Stage 1 extracts the legal rule/principle in one sentence; Stage 2 uses extracted rule + original question for answer selection |
-| 3 | Chain of Logic | 1 | **v2 (redesigned):** 3-step simplified prompt — identify rule from passage → apply rule directly to the facts → state answer letter. Original 4-step IRAC version (Servantez et al., 2024) preserved as comment in `condition_3_col.py`. Redesign motivated by FM2 dominance: shorter chain reduces over-decomposition errors. |
-| 4 | Negative Elimination | 1 | For each of the 4 answer choices: identify the legal doctrine it invokes, state whether the passage supports or contradicts it, eliminate or retain. Select the surviving choice. Novel condition motivated by MBE structure — correct answers frequently require ruling out three wrong doctrines rather than confirming one right one. |
-| 5 | Answer Verification | 2 | Stage 1: baseline generation → answer + justification. Stage 2: check each claim in the justification against the passage; flag unsupported claims; confirm or revise answer. |
-| 6 | Self-Consistency (N=3) | 3 | Three independent calls at temp=0.7; majority vote on answer letter. Tie-break: first call's answer. Based on Wang et al. (2023). |
-| 7 | Rule Extraction + CoL | 2 | Stage 1: extract legal rule (same as Condition 2 Stage 1). Stage 2: apply Chain of Logic (v2) to the extracted rule. Compounds the strengths of Conditions 2 and 3. |
+| ID | Name | Calls | Temp | Max Tokens | Core Mechanism |
+|----|------|-------|------|------------|----------------|
+| 0 | **Baseline** | 1 | 0 | 150 | Direct answer instruction — establishes residual failure rate |
+| 1 | **Passage-Grounding Constraint** | 1 | 0 | 150 | Explicit instruction to rely *only* on the passage; tests whether post-rationalization can be reduced by instruction alone |
+| 2 | **Rule Extraction** | 2 | 0 | 300/call | Stage 1: extract the legal rule/principle in one sentence → Stage 2: apply extracted rule to answer selection |
+| 3 | **Chain of Logic (CoL)** | 1 | 0 | 600 | **v2 (redesigned):** 3-step simplified prompt — identify rule from passage → apply rule directly to the facts → state answer letter. Original 4-step IRAC version (Servantez et al., 2024) preserved as comment in `condition_3_col.py`. Redesign motivated by FM2 dominance. |
+| 4 | **Negative Elimination** | 1 | 0 | 600 | Per-choice: identify the legal doctrine invoked → state whether passage supports/contradicts it → eliminate or retain. Select surviving choice. Novel condition motivated by MBE structure. |
+| 5 | **Answer Verification** | 2 | 0 | 300/call | Stage 1: baseline generation → answer + justification → Stage 2: check each claim against the passage; flag unsupported claims; confirm or revise |
+| 6 | **Self-Consistency (N=3)** | 3 | 0.7 | 150/call | Three independent samples → majority vote on answer letter; tie-break: first call's answer. Based on Wang et al. (2023). |
+| 7 | **Rule Extraction + CoL** | 2 | 0 | 300/call | Stage 1: extract legal rule (same as Cond 2) → Stage 2: apply Chain of Logic v2 to the extracted rule. Compounds strengths of Conditions 2 and 3. |
+
+#### Expected Strengths & Known Limitations
+
+| ID | Targets / Hypothesis | Key Risk / Limitation |
+|----|----------------------|-----------------------|
+| 0 | Establishes residual failure rate | Parametric override, post-rationalization |
+| 1 | Reduce post-rationalization by instruction | May hurt on questions needing elimination of wrong answers using knowledge outside the passage |
+| 2 | Oblique passages where the rule is not stated directly | Fabricates rule on analogical passages (case descriptions rather than rules) |
+| 3 | Element-checking questions; shorter chain reduces over-decomposition | Shallow steps or skipped steps; reasoning correct but conclusion wrong |
+| 4 | Questions where correct answer = last one standing after elimination | Misidentified doctrines; passage may not address all choices |
+| 5 | Catch unsupported claims in initial reasoning | >99% sycophancy — model almost never revises its own answer (8/1,195 changes) |
+| 6 | Reduce variance; boost borderline correct answers | Amplifies systematic errors; 3× token cost |
+| 7 | Compound strengths of Rule Extraction + CoL | Compounds failure modes — Stage 1 fabrication propagates to Stage 2 |
+
+#### Token Cost Profile
+
+| Category | Conditions | Relative Cost |
+|----------|-----------|---------------|
+| Single short call | 0, 1 | 1× |
+| Three-sample voting | 6 | ~3× |
+| Two-stage call | 2, 5, 7 | ~3× |
+| Single reasoning call | 3, 4 | ~4× |
+| Rule Extraction + CoL | 7 | ~5–6× |
 
 ### Prompt Architecture
 
