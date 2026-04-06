@@ -126,8 +126,7 @@ results/
     per_subject_accuracy.csv   # Accuracy by subject × condition
     ece_bins_{name}.csv        # 10-bin ECE breakdown per condition
     reliability_{name}.png     # Reliability diagram per condition
-  few_shot/                    # Few-shot results (same structure)
-                               # Conds 0–3: N=1,195 | Cond 4: N=874 | Conds 5–7: N=200
+  few_shot/                    # Few-shot results (same structure), all conditions N=1,195
   analysis/                    # Cross-run analysis and final summary
   archive_test_split_117/      # Pilot on N=117 test split (GPT-4o-mini)
 ```
@@ -156,9 +155,6 @@ nohup python run_experiment.py --zero-shot > logs/zero_shot.log 2>&1 &
 # Run all 8 conditions few-shot in background
 nohup python run_experiment.py --few-shot > logs/few_shot.log 2>&1 &
 
-# Run with subset limit (e.g. first 200 questions)
-nohup python run_experiment.py --few-shot --conditions 5 6 7 --limit 200 > logs/few_shot_limit200.log 2>&1 &
-
 # Resume is on by default — restarts skip already-completed rows
 # Re-run evaluator on existing CSVs without new API calls
 python run_experiment.py --summary-only --zero-shot
@@ -184,20 +180,20 @@ python run_experiment.py --summary-only --few-shot
 
 **Main finding:** No intervention reliably improves on zero-shot baseline. Structured prompts add noise rather than signal on this model at zero-shot.
 
-### Few-shot — status as of 2026-04-02
+### Few-shot — N=1,195 (complete)
 
-| ID | Condition | Correct | N | Accuracy | Status |
-|----|-----------|---------|---|----------|--------|
-| 0 | Baseline | 722 | 1195 | 60.4% | Complete |
-| 1 | Grounding | 708 | 1195 | 59.2% | Complete |
-| 2 | Rule Extraction | 818 | 1195 | **68.5%** | Complete |
-| 3 | Chain of Logic | 957 | 1195 | **80.1%** | Complete |
-| 4 | Negative Elimination | 689 | 874 | 78.8% | In progress (874/1195) |
-| 5 | Answer Verification | — | 200 | — | Running (--limit 200) |
-| 6 | Self-Consistency (N=3) | — | 200 | — | Pending |
-| 7 | Rule Extraction + CoL | — | 200 | — | Pending |
+| ID | Condition | Correct | Accuracy |
+|----|-----------|---------|----------|
+| 0 | Baseline | 722 | 60.4% |
+| 1 | Grounding | 708 | 59.2% |
+| 2 | Rule Extraction | 818 | 68.5% |
+| 3 | Chain of Logic | 957 | **80.1%** |
+| 4 | Negative Elimination | 940 | 78.7% |
+| 5 | Answer Verification | 955 | 79.9% |
+| 6 | Self-Consistency (N=3) | 954 | **79.8%** |
+| 7 | Rule Extraction + CoL | 939 | 78.6% |
 
-**Key few-shot finding:** Few-shot dramatically boosts reasoning-heavy conditions. Chain of Logic jumps from 63.2% → **80.1%** (+16.9 pp); Rule Extraction from 63.3% → **68.5%** (+5.2 pp). Baseline and Grounding slightly decline (likely the 2 examples shift the distribution toward harder questions in the fixed ordering). This confirms the FM2 hypothesis: showing worked examples of correct passage-application directly addresses the dominant failure mode.
+**Key few-shot finding:** Few-shot dramatically boosts reasoning-heavy conditions. Chain of Logic jumps from 63.2% → **80.1%** (+16.9 pp); Negative Elimination from 60.8% → **78.7%** (+17.9 pp); Answer Verification from 62.8% → **79.9%** (+17.1 pp). Baseline and Grounding slightly decline. This confirms the FM2 hypothesis: showing worked examples of correct passage-application directly addresses reasoning failures, the dominant error type (89.3% of baseline errors).
 
 ### Zero-shot per-subject accuracy
 
@@ -257,6 +253,5 @@ FM2 overwhelmingly dominates. The problem is not ignoring the passage — it is 
 
 - **Prompt sensitivity:** results may be sensitive to exact prompt wording — the most significant caveat
 - **Single model:** all main results are on Llama 3.3 70B Q4_K_M; findings may not generalise to other model families or sizes
-- **Few-shot N mismatch:** conditions 5–7 few-shot run at N=200 (first 200 dataset rows), conditions 0–3 at N=1,195, condition 4 at N=874; direct accuracy comparisons within the few-shot block must account for differing sample sizes and the non-random selection of the N=200 subset
 - **Answer-letter evaluation only:** a model may select the correct letter through flawed reasoning; qualitative analysis (N=20 manual inspection of Cond 3/7 failures) shows dominant modes are shallow reasoning steps (32%) and reasoning–conclusion mismatch (32%)
 - **Zero-shot vs. Zheng et al.:** direct numerical comparison to their reported ceiling figures should be made with caution — their setup used few-shot prompting
