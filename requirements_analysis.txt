@@ -1,0 +1,7 @@
+# Requirements for analysis.ipynb
+numpy>=2.4
+pandas>=3.0
+matplotlib>=3.10
+seaborn>=0.13
+scipy>=1.17
+jupyter>=1.0         # or jupyterlab>=4.0
