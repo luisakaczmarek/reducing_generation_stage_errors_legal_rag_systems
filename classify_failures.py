@@ -142,7 +142,7 @@ def main():
     df_full = df_full.set_index("idx")
 
     # Load baseline results and filter to wrong answers
-    baseline_path = os.path.join(RESULTS_DIR, "condition_0_baseline.csv")
+    baseline_path = os.path.join(RESULTS_DIR, "zero_shot", "condition_0_baseline.csv")
     df_base = pd.read_csv(baseline_path)
     df_wrong = df_base[df_base["is_correct"] == False].copy()
     print(f"Baseline wrong answers: {len(df_wrong)} / {len(df_base)}")

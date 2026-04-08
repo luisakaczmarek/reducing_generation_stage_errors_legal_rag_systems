@@ -185,10 +185,13 @@ def main():
 
     # Build system prompt — inject few-shot prefix if requested
     if args.few_shot:
-        from conditions.few_shot_examples import get_few_shot_prompt
+        from conditions.few_shot_examples import get_few_shot_prompt, get_few_shot_examples
         few_shot_prefix = get_few_shot_prompt()
         system_prompt = few_shot_prefix + build_system_prompt()
-        print(f"Mode: few-shot | Results dir: {results_dir}")
+        # Exclude few-shot examples from evaluation to prevent leakage
+        few_shot_ids = {ex["idx"] for ex in get_few_shot_examples().values()}
+        df_test = df_test[~df_test["idx"].isin(few_shot_ids)].reset_index(drop=True)
+        print(f"Mode: few-shot | Excluded {len(few_shot_ids)} few-shot examples from eval ({few_shot_ids}) | Results dir: {results_dir}")
     else:
         system_prompt = build_system_prompt()
         print(f"Mode: zero-shot | Results dir: {results_dir}")

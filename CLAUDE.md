@@ -5,9 +5,9 @@ Test whether structured generation-stage prompting interventions reduce
 hallucination / improve accuracy on bar exam (MBE) multiple-choice questions
 when the correct gold passage is always provided.
 
-Research gap: even with the gold passage given, models fail 25–43% of the
-time — a generation-stage ceiling independent of retrieval quality
-(Zheng et al., 2025).
+Research gap: even with the gold passage given, models fail ~37% of the
+time on the Bar Exam QA benchmark (GPT-4o-mini) — a generation-stage ceiling
+independent of retrieval quality (Zheng et al., 2025).
 
 ## Dataset
 - Source: `reglab/barexam_qa` (HuggingFace), from Zheng et al. (2025)
@@ -29,7 +29,7 @@ time — a generation-stage ceiling independent of retrieval quality
 - Model: llama-3.3-70b-versatile (Groq API, free tier)
 - Temperature: 0 for all conditions except self-consistency (0.7)
 - Evaluation set: full dataset (1,195 questions, all splits)
-- Prompting: zero-shot — no few-shot examples in any condition
+- Prompting: zero-shot and few-shot regimes, both run on all 8 conditions
 - Gold passage always injected into every prompt
 
 ## The 8 Conditions
@@ -51,11 +51,10 @@ Targets oblique passages. Risk: may fabricate on analogical passages where
 the passage describes a case rather than a rule.
 
 ### Condition 3 — Chain of Logic (CoL)
-Single call. IRAC-inspired decomposition (Servantez et al., ACL 2024):
-  Step 1: Identify rule from passage
-  Step 2: Decompose into elements
-  Step 3: Evaluate each element against the facts
-  Step 4: Recompose → select answer
+Single call. Simplified 3-step reasoning (Servantez et al., ACL 2024):
+  Step 1: Identify the legal rule stated in the passage (one sentence)
+  Step 2: Apply it directly to the facts — which answer does it support/exclude?
+  Step 3: State your answer
 Expected to outperform on element-checking questions.
 
 ### Condition 4 — Negative Elimination
@@ -80,7 +79,11 @@ amplifies rather than corrects it.
 
 ### Condition 7 — Rule Extraction + CoL (combined)
 Call 1: Rule extraction (as Condition 2, Stage 1)
-Call 2: CoL applied to the extracted rule (as Condition 3, but rule pre-supplied)
+Call 2: Original 4-step CoL with pre-supplied rule:
+  Step 1: State the extracted rule
+  Step 2: Decompose into key elements
+  Step 3: Evaluate each answer choice against elements and facts
+  Step 4: Select the best answer
 Compounds the strengths of Conditions 2 and 3; also compounds their failure
 modes if Stage 1 fabricates.
 
@@ -152,12 +155,17 @@ Condition 5 is effectively baseline at 3× the token cost.
 Fix: force the model to argue for alternative answers before confirming.
 
 ### Main result
-No intervention beats zero-shot baseline at N=1,195 on GPT-4o-mini.
-Structured prompts add noise rather than signal at this model size.
+Zero-shot: no intervention beats baseline (Llama 3.3 70B, N=1,195).
+  Grounding and Negative Elimination are significantly worse (* and ***).
+Few-shot: 6/7 interventions significantly outperform baseline (*** level).
+  Best: CoL (80.1%) > Answer Verification (79.9%) > Self-Consistency (79.8%)
+        > Negative Elimination (78.7%) > Rule Ext.+CoL (78.6%).
+  Grounding performs slightly below few-shot baseline (59.2% vs 60.4%).
 
 ### Failure Mode Taxonomy (applied to all baseline wrong answers)
 Three mutually exclusive failure modes used to classify baseline errors.
-Classified by GPT-4o-mini via classify_failures.py; output: results/failure_modes_baseline.csv.
+Classified by Llama 3.3 70B via classify_failures.py; output: results/failure_modes_baseline.csv.
+FM1: 123/431 = 28.5% | FM2: 308/431 = 71.5%
 
 FM1 — PARAMETRIC OVERRIDE: Model answered from memory or prior knowledge,
 ignoring or contradicting the gold passage. Reasoning does not engage with
