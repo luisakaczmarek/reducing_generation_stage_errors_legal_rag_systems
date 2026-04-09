@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .env
 data/
-results/
+results/*
+!results/thesis_figures
 logs/
 .claude/
