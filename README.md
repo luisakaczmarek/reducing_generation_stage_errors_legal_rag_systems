@@ -1,7 +1,5 @@
 # Reducing Generation-Stage Hallucinations in Legal RAG Systems
 
-**Repository:** https://github.com/luisakaczmarek/reducing-legal-hallucinations
-
 ---
 
 ## Overview
