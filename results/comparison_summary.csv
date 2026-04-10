@@ -1,0 +1,9 @@
+condition_id,condition_name,zero_shot_accuracy,few_shot_accuracy,difference,mcnemar_chi2,mcnemar_p,significant_p05
+0,Baseline,0.6393,0.6035,-0.0358,12.84,0.0003,yes
+1,Grounding,0.6167,0.5918,-0.025,6.475,0.0109,yes
+2,Rule Extraction,0.6326,0.684,0.0514,16.42,0.0001,yes
+3,Chain of Logic,0.6318,0.8005,0.1687,124.531,0.0,yes
+4,Negative Elimination,0.6084,0.7863,0.1779,129.326,0.0,yes
+5,Answer Verification,0.6276,0.7988,0.1712,116.917,0.0,yes
+6,Self-Consistency (N=3),0.6293,0.798,0.1687,122.984,0.0,yes
+7,Rule Extraction + CoL,0.6301,0.7854,0.1553,104.003,0.0,yes
