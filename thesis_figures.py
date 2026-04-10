@@ -526,6 +526,45 @@ def main():
     plt.tight_layout()
     savefig('fig9_regression_matrix.png')
 
+    # ═════════════════════════════════════════════════════════════════════════
+    # FIG 11 — Self-Consistency: agreement rate vs accuracy (Condition 6)
+    # ═════════════════════════════════════════════════════════════════════════
+    print('[9/9] Self-consistency agreement vs accuracy')
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.2))
+
+    for ax, df, label in zip(axes, [zs, fs], ['(a) Zero-Shot', '(b) Few-Shot']):
+        c6 = df[df['condition_id'] == 6].copy()
+        if 'confidence' not in c6.columns or c6['confidence'].isna().all():
+            ax.text(0.5, 0.5, 'No confidence data', ha='center', va='center',
+                    transform=ax.transAxes)
+            ax.set_title(label)
+            continue
+        c6['agreement'] = c6['confidence'].round(2)
+        grp = (c6.groupby('agreement')
+                 .agg(accuracy=('is_correct', 'mean'), n=('is_correct', 'count'))
+                 .reset_index()
+                 .sort_values('agreement'))
+        x = np.arange(len(grp))
+        bars = ax.bar(x, grp['accuracy'], color=PALETTE[0], alpha=0.85, width=0.5, zorder=3)
+        for bar, (_, row) in zip(bars, grp.iterrows()):
+            ax.text(bar.get_x() + bar.get_width()/2,
+                    bar.get_height() + 0.012,
+                    f'{row["accuracy"]:.1%}\n(n={int(row["n"])})',
+                    ha='center', va='bottom', fontsize=8)
+        ax.set_xticks(x)
+        ax.set_xticklabels([f'{a:.2f}\n({int(round(a*3))}/3 agree)' for a in grp['agreement']],
+                           fontsize=8)
+        ax.set_xlabel('Agreement Rate (votes for winner / 3)')
+        ax.set_ylabel('Accuracy')
+        ax.set_title(label)
+        ax.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1))
+        ax.set_ylim(0, 1.05)
+        sns.despine(ax=ax)
+
+    fig.suptitle('Self-Consistency (N=3): Agreement Rate vs. Accuracy', y=1.01)
+    plt.tight_layout()
+    savefig('fig11_self_consistency_agreement.png')
+
     print(f'\nDone. All figures saved to {THESIS_DIR}/')
 
 
