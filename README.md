@@ -80,15 +80,15 @@ Two modes, controlled by `--zero-shot` / `--few-shot` flag:
 | 6 | Reduce variance; boost borderline correct answers | Amplifies systematic errors; 3× token cost |
 | 7 | Compound strengths of Rule Extraction + CoL | Compounds failure modes — Stage 1 fabrication propagates to Stage 2 |
 
-#### Token Cost Profile
+#### Token Cost Profile (zero-shot, relative to C0 baseline at ~630 avg tokens/question)
 
 | Category | Conditions | Relative Cost |
 |----------|-----------|---------------|
 | Single short call | 0, 1 | 1× |
+| Single reasoning call | 3, 4 | ~1.4× |
+| Two-stage (rule extraction) | 2, 7 | ~1.6–1.9× |
+| Two-stage (verification) | 5 | ~2.3× |
 | Three-sample voting | 6 | ~3× |
-| Two-stage call | 2, 5, 7 | ~3× |
-| Single reasoning call | 3, 4 | ~4× |
-| Rule Extraction + CoL | 7 | ~5–6× |
 
 ### Prompt Architecture
 
@@ -117,8 +117,7 @@ Results are written one row per question immediately after each API call — saf
 
 1. **First systematic evaluation** of multiple generation-stage interventions specifically targeting the gold-passage ceiling in legal RAG
 2. **Negative Elimination** — a novel prompting condition motivated by the structural properties of MBE questions
-3. **ECE calibration measurement** following Dahl et al. (2024), with reliability diagrams per condition
-4. **Failure mode taxonomy (FM1/FM2)** applied to all 431 baseline errors, revealing that FM2 (reasoning failure) dominates (89.3%), motivating few-shot intervention
+3. **Failure mode taxonomy (FM1/FM2)** applied to all 431 baseline errors, revealing that FM2 (reasoning failure) dominates (71.5%), motivating few-shot intervention
 
 ---
 
@@ -126,10 +125,11 @@ Results are written one row per question immediately after each API call — saf
 
 ```
 run_experiment.py              # Entry point — CLI for all 8 conditions
-evaluator.py                   # Accuracy, ECE, McNemar's test, per-subject breakdown
+evaluator.py                   # Accuracy, McNemar's test, per-subject breakdown
 classify_failures.py           # Classifies baseline wrong answers into FM1/FM2
+thesis_figures.py              # Generates all publication-quality figures
 conditions/
-  base.py                      # BaseCondition class, prompt builder, logprob utils
+  base.py                      # BaseCondition class, prompt builder, answer extractor
   few_shot_examples.py         # Fixed few-shot examples (seed=42, Torts + Contracts)
   condition_0_baseline.py
   condition_1_grounding.py
@@ -139,19 +139,17 @@ conditions/
   condition_5_verification.py
   condition_6_self_consistency.py
   condition_7_rule_col.py
-data/                          # Dataset (parquet + csv, loaded automatically via glob)
-logs/                          # nohup run logs
+data/                          # Dataset (parquet, loaded automatically via glob; not tracked)
 results/
   zero_shot/                   # Zero-shot results, N=1,195 per condition
     condition_{N}_{name}.csv   # Per-question: idx, subject, correct_answer, predicted_answer,
-                               #   is_correct, tokens_in/out, logprob_A/B/C/D, confidence
-    summary.csv                # Aggregated accuracy, ECE, cost per condition
+                               #   is_correct, tokens_in/out, raw_response_1/2
+    summary.csv                # Aggregated accuracy and cost per condition
     per_subject_accuracy.csv   # Accuracy by subject × condition
-    ece_bins_{name}.csv        # 10-bin ECE breakdown per condition
-    reliability_{name}.png     # Reliability diagram per condition
-  few_shot/                    # Few-shot results (same structure), all conditions N=1,195
-  analysis/                    # Cross-run analysis and final summary
-  archive_test_split_117/      # Pilot on N=117 test split (GPT-4o-mini)
+  few_shot/                    # Few-shot results, N=1,193 (same structure)
+  failure_modes_baseline.csv   # FM1/FM2 classification of all 431 baseline errors
+  comparison_summary.csv       # Zero-shot vs few-shot comparison with McNemar results
+  thesis_figures/              # Publication-quality PNGs (300 dpi)
 ```
 
 ---
@@ -203,20 +201,20 @@ python run_experiment.py --summary-only --few-shot
 
 **Main finding:** No intervention reliably improves on zero-shot baseline. Structured prompts add noise rather than signal on this model at zero-shot.
 
-### Few-shot — N=1,195 (complete)
+### Few-shot — N=1,193 (2 questions withheld as examples)
 
 | ID | Condition | Correct | Accuracy |
 |----|-----------|---------|----------|
-| 0 | Baseline | 722 | 60.4% |
-| 1 | Grounding | 708 | 59.2% |
-| 2 | Rule Extraction | 818 | 68.5% |
-| 3 | Chain of Logic | 957 | **80.1%** |
-| 4 | Negative Elimination | 940 | 78.7% |
-| 5 | Answer Verification | 955 | 79.9% |
-| 6 | Self-Consistency (N=3) | 954 | **79.8%** |
-| 7 | Rule Extraction + CoL | 939 | 78.6% |
+| 0 | Baseline | 720 | 60.4% |
+| 1 | Grounding | 706 | 59.2% |
+| 2 | Rule Extraction | 816 | 68.4% |
+| 3 | Chain of Logic | 955 | **80.1%** |
+| 4 | Negative Elimination | 938 | 78.6% |
+| 5 | Answer Verification | 953 | 79.9% |
+| 6 | Self-Consistency (N=3) | 952 | **79.8%** |
+| 7 | Rule Extraction + CoL | 937 | 78.5% |
 
-**Key few-shot finding:** Few-shot dramatically boosts reasoning-heavy conditions. Chain of Logic jumps from 63.2% → **80.1%** (+16.9 pp); Negative Elimination from 60.8% → **78.7%** (+17.9 pp); Answer Verification from 62.8% → **79.9%** (+17.1 pp). Baseline and Grounding slightly decline. This confirms the FM2 hypothesis: showing worked examples of correct passage-application directly addresses reasoning failures, the dominant error type (89.3% of baseline errors).
+**Key few-shot finding:** Few-shot dramatically boosts reasoning-heavy conditions. Chain of Logic jumps from 63.2% → **80.1%** (+16.9 pp); Negative Elimination from 60.8% → **78.6%** (+17.8 pp); Answer Verification from 62.8% → **79.9%** (+17.1 pp). Baseline and Grounding slightly decline. This confirms the FM2 hypothesis: showing worked examples of correct passage-application directly addresses reasoning failures, the dominant error type (71.5% of baseline errors).
 
 ### Zero-shot per-subject accuracy
 
@@ -241,10 +239,10 @@ Two mutually exclusive failure modes applied to all 431 baseline zero-shot wrong
 
 | Mode | Description | Count | % |
 |------|-------------|-------|---|
-| **FM1 — Parametric Override** | Model answered from memory/prior knowledge, ignoring or contradicting the gold passage | 46 | 10.7% |
-| **FM2 — Reasoning Failure** | Model engaged with the passage but failed to reach the correct answer — whether by wrong logical inference or by failing to complete the inferential step from passage to answer | 385 | 89.3% |
+| **FM1 — Parametric Override** | Model answered from memory/prior knowledge, ignoring or contradicting the gold passage | 123 | 28.5% |
+| **FM2 — Reasoning Failure** | Model engaged with the passage but failed to reach the correct answer — whether by wrong logical inference or by failing to complete the inferential step from passage to answer | 308 | 71.5% |
 
-FM2 overwhelmingly dominates. The problem is not ignoring the passage — it is failing to reason correctly over it. This motivated: (1) redesigning Condition 3 to use a shorter 3-step chain, and (2) adding few-shot examples demonstrating correct passage-application.
+FM2 dominates. The problem is not ignoring the passage — it is failing to reason correctly over it. This motivated: (1) redesigning Condition 3 to use a shorter 3-step chain, and (2) adding few-shot examples demonstrating correct passage-application.
 
 ---
 
@@ -253,7 +251,7 @@ FM2 overwhelmingly dominates. The problem is not ignoring the passage — it is 
 - **Accuracy** — proportion of correct answer letters (primary metric)
 - **McNemar's test** — pairwise significance vs. Condition 0 for paired binary outcomes
 - **Wilson score CI** — 95% confidence intervals per condition
-- **ECE** — Expected Calibration Error (Guo et al. 2017), 10 equal-width bins; measures gap between expressed confidence and actual accuracy. Confidence = softmax over logprobs of A/B/C/D at first generated token; Condition 6 uses votes/3.
+- **Self-consistency agreement** — for Condition 6: votes_for_winner / 3 as a proxy for answer certainty
 - **Per-subject breakdown** — accuracy across 7 MBE subjects per condition
 
 ---
@@ -275,6 +273,6 @@ FM2 overwhelmingly dominates. The problem is not ignoring the passage — it is 
 ## Limitations
 
 - **Prompt sensitivity:** results may be sensitive to exact prompt wording — the most significant caveat
-- **Single model:** all main results are on Llama 3.3 70B Q4_K_M; findings may not generalise to other model families or sizes
+- **Single model:** all main results are on Llama 3.3 70B (Groq API); findings may not generalise to other model families or sizes
 - **Answer-letter evaluation only:** a model may select the correct letter through flawed reasoning; qualitative analysis (N=20 manual inspection of Cond 3/7 failures) shows dominant modes are shallow reasoning steps (32%) and reasoning–conclusion mismatch (32%)
 - **Zero-shot vs. Zheng et al.:** direct numerical comparison to their reported ceiling figures should be made with caution — their setup used few-shot prompting
