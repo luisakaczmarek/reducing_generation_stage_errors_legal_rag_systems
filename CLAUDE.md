@@ -110,28 +110,8 @@ modes if Stage 1 fabricates.
 - On restart: existing CSV checked; rows with matching `idx` skipped
 - CSV columns: idx, subject, source, split, question (100 chars), correct_answer,
   predicted_answer, is_correct, condition, tokens_input, tokens_output,
-  raw_response_1, raw_response_2, logprob_A, logprob_B, logprob_C, logprob_D,
-  confidence
+  raw_response_1, raw_response_2
 - Final summary: `results/summary.csv`
-
-## Calibration Measurement (ECE)
-ECE (Expected Calibration Error) per Guo et al. (2017), following
-Dahl et al. (2024) "Large Legal Fictions", Appendix D.
-
-Formula: ECE = Σ_b (|B_b| / n) × |acc(B_b) − conf(B_b)|
-10 equal-width bins by confidence score [0,1]. Lower = better calibrated.
-Dahl et al. pooled ECE baseline: 0.453.
-
-### Confidence extraction
-- Conditions 0,1,3,4 and final call of 2,5,7: logprobs=True, top_logprobs=4
-  on the answer call. Extract logprobs for A/B/C/D from first generated token.
-  confidence = softmax(logprob_A, logprob_B, logprob_C, logprob_D)[predicted]
-- Condition 6: confidence = votes_for_winner / 3 (no logprobs)
-
-### ECE outputs from evaluator.py
-- results/summary.csv: adds ece, mean_confidence, overconfidence_gap columns
-- results/ece_bins_{name}.csv: per-bin stats (10 rows per condition)
-- results/reliability_{name}.png: reliability diagram per condition
 
 ## Evaluation Metrics
 - Accuracy: proportion correct (primary)

@@ -21,7 +21,6 @@ class Condition6SelfConsistency(BaseCondition):
         tokens_in, tokens_out = 0, 0
 
         for _ in range(self.N_SAMPLES):
-            # No logprobs for self-consistency — use vote proportion instead
             r = self.call_api(messages, max_tokens=150, temperature=0.7)
             text = r.choices[0].message.content or ""
             responses.append(text)
@@ -48,10 +47,5 @@ class Condition6SelfConsistency(BaseCondition):
             "raw_response_1": responses[0] if len(responses) > 0 else "",
             "raw_response_2": responses[1] if len(responses) > 1 else "",
             "raw_response_3": responses[2] if len(responses) > 2 else "",
-            # No logprobs for self-consistency
-            "logprob_A": None,
-            "logprob_B": None,
-            "logprob_C": None,
-            "logprob_D": None,
             "confidence": confidence,
         }

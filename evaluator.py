@@ -21,69 +21,6 @@ CONDITION_NAMES = {
 }
 
 
-def compute_ece(df: pd.DataFrame, n_bins: int = 10) -> tuple:
-    """Compute Expected Calibration Error (Guo et al. 2017)."""
-    df = df.copy()
-    df = df.dropna(subset=["confidence", "is_correct"])
-    df["confidence"] = df["confidence"].clip(0.0, 1.0)
-    df["is_correct_int"] = df["is_correct"].astype(int)
-    bins = np.linspace(0.0, 1.0, n_bins + 1)
-    df["bin_idx"] = pd.cut(
-        df["confidence"], bins=bins, labels=False, include_lowest=True
-    )
-    ece = 0.0
-    n = len(df)
-    bin_stats = []
-    for b in range(n_bins):
-        group = df[df["bin_idx"] == b]
-        if len(group) == 0:
-            continue
-        avg_conf = group["confidence"].mean()
-        avg_acc = group["is_correct_int"].mean()
-        weight = len(group) / n
-        gap = abs(avg_conf - avg_acc)
-        ece += weight * gap
-        bin_stats.append(
-            {
-                "bin_lower": round(bins[b], 2),
-                "bin_upper": round(bins[b + 1], 2),
-                "n": len(group),
-                "avg_confidence": round(avg_conf, 4),
-                "avg_accuracy": round(avg_acc, 4),
-                "gap": round(gap, 4),
-                "weight": round(weight, 4),
-                "overconfident": avg_conf > avg_acc,
-            }
-        )
-    return round(ece, 4), pd.DataFrame(bin_stats)
-
-
-def plot_reliability_diagram(bin_stats_df, condition_name, output_path):
-    """Save a reliability diagram for one condition."""
-    import matplotlib.pyplot as plt
-
-    fig, ax = plt.subplots(figsize=(5, 5))
-    ax.plot([0, 1], [0, 1], "k--", label="Perfect calibration", linewidth=1)
-    if len(bin_stats_df) > 0:
-        x = bin_stats_df["avg_confidence"].values
-        y = bin_stats_df["avg_accuracy"].values
-        sizes = (bin_stats_df["n"].values / bin_stats_df["n"].max()) * 300 + 30
-        ax.scatter(x, y, s=sizes, alpha=0.7, color="steelblue", zorder=3)
-        ax.fill_between(
-            [0, 1], [0, 1], [1, 1],
-            alpha=0.05, color="red", label="Overconfident region",
-        )
-    ax.set_xlabel("Mean Confidence", fontsize=12)
-    ax.set_ylabel("Mean Accuracy", fontsize=12)
-    ax.set_title(f"Reliability Diagram\n{condition_name}", fontsize=12)
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-    ax.legend(fontsize=9)
-    ax.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=150, bbox_inches="tight")
-    plt.close()
-
 
 def _mcnemar(y_true, pred_a, pred_b):
     """McNemar's test: A vs B, returns (chi2, p)."""
@@ -114,13 +51,7 @@ def run_evaluator(results_dir="results"):
         return None
 
     rows = []
-    ece_bin_data = {}  # cond_id -> bin_stats DataFrame
     for cond_id, df in sorted(dfs.items()):
-        # Fill missing ECE columns gracefully (old CSVs without logprob/confidence)
-        for col in ["logprob_A", "logprob_B", "logprob_C", "logprob_D", "confidence"]:
-            if col not in df.columns:
-                df[col] = None
-
         n = len(df)
         n_correct = int(df["is_correct"].sum())
         accuracy = n_correct / n if n > 0 else 0.0
@@ -130,12 +61,6 @@ def run_evaluator(results_dir="results"):
             df["tokens_input"].sum() * 0.00000015
             + df["tokens_output"].sum() * 0.0000006
         )
-
-        ece, bin_stats = compute_ece(df)
-        ece_bin_data[cond_id] = bin_stats
-        conf_valid = df["confidence"].dropna()
-        mean_conf = float(conf_valid.mean()) if len(conf_valid) > 0 else float("nan")
-        overconf_gap = mean_conf - accuracy if not np.isnan(mean_conf) else float("nan")
 
         rows.append(
             {
@@ -147,9 +72,6 @@ def run_evaluator(results_dir="results"):
                 "parse_errors": parse_errors,
                 "total_tokens": total_tokens,
                 "estimated_cost_usd": cost,
-                "ece": ece,
-                "mean_confidence": round(mean_conf, 4),
-                "overconfidence_gap": round(overconf_gap, 4),
             }
         )
 
@@ -175,42 +97,6 @@ def run_evaluator(results_dir="results"):
     total_cost = summary["estimated_cost_usd"].sum()
     print("=" * 80)
     print(f"Total estimated cost: ${total_cost:.4f}")
-
-    # ── ECE table ────────────────────────────────────────────────────────────
-    print(
-        "\nECE TABLE (lower = better calibrated | "
-        "Dahl et al. 2024 baseline ECE = 0.453)"
-    )
-    print("─" * 70)
-    for _, r in summary.iterrows():
-        name = r["condition_name"]
-        ece_val = r["ece"]
-        mc = r["mean_confidence"]
-        og = r["overconfidence_gap"]
-        ece_str = f"{ece_val:.3f}" if not np.isnan(ece_val) else "N/A"
-        mc_str = f"{mc:.3f}" if not np.isnan(mc) else "N/A"
-        og_str = (
-            f"{og:+.3f}" if not np.isnan(og) else "N/A"
-        )
-        print(
-            f"  Condition {int(r['condition_id'])} ({name:<24}): "
-            f"ECE = {ece_str} | mean conf = {mc_str} | overconf = {og_str}"
-        )
-    print("─" * 70)
-
-    # ── Save bin stats and reliability diagrams ───────────────────────────────
-    for cond_id, bin_stats in ece_bin_data.items():
-        name = CONDITION_NAMES.get(cond_id, f"condition_{cond_id}")
-        safe_name = name.lower().replace(" ", "_").replace("(", "").replace(")", "")
-        if len(bin_stats) > 0:
-            bin_stats.to_csv(
-                os.path.join(results_dir, f"ece_bins_{safe_name}.csv"), index=False
-            )
-            plot_reliability_diagram(
-                bin_stats,
-                name,
-                os.path.join(results_dir, f"reliability_{safe_name}.png"),
-            )
 
     # ── McNemar's test vs baseline ───────────────────────────────────────────
     if 0 in dfs:

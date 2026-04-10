@@ -2,8 +2,6 @@ from .base import (
     BaseCondition,
     build_user_message,
     extract_answer,
-    extract_answer_logprobs,
-    logprobs_to_confidence,
     ANSWER_FORMAT,
 )
 
@@ -28,10 +26,9 @@ class Condition4NegativeElim(BaseCondition):
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": user_msg},
         ]
-        r = self.call_api(messages, max_tokens=600, logprobs=True, top_logprobs=4)
+        r = self.call_api(messages, max_tokens=600)
         text = r.choices[0].message.content or ""
         predicted = extract_answer(text)
-        lp = extract_answer_logprobs(r)
 
         return {
             "predicted_answer": predicted,
@@ -39,9 +36,4 @@ class Condition4NegativeElim(BaseCondition):
             "tokens_output": r.usage.completion_tokens,
             "raw_response_1": text,
             "raw_response_2": None,
-            "logprob_A": lp["A"],
-            "logprob_B": lp["B"],
-            "logprob_C": lp["C"],
-            "logprob_D": lp["D"],
-            "confidence": logprobs_to_confidence(lp, predicted),
         }

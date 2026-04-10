@@ -22,9 +22,6 @@ import pandas as pd
 from conditions.base import (
     build_system_prompt,
     build_user_message,
-    extract_answer,
-    extract_answer_logprobs,
-    logprobs_to_confidence,
     ANSWER_FORMAT,
 )
 from conditions.condition_0_baseline import Condition0Baseline
@@ -76,7 +73,7 @@ def load_dataset():
 
 def do_dry_run(df_test, system_prompt, client, model="llama-3.3-70b-versatile"):
     print("\n" + "=" * 80)
-    print("DRY RUN — Condition 0 prompts + logprob verification (1 real API call)")
+    print("DRY RUN — Condition 0 prompt preview (no API calls)")
     print("=" * 80)
 
     print("\n--- SYSTEM PROMPT (first 1 000 chars) ---")
@@ -91,36 +88,7 @@ def do_dry_run(df_test, system_prompt, client, model="llama-3.3-70b-versatile"):
         print(f"\n--- USER PROMPT (question {i}) ---")
         print(user_msg[:2000] + ("…" if len(user_msg) > 2000 else ""))
 
-    # One real API call to verify logprob extraction
-    print("\n--- LOGPROB VERIFICATION (question 1, one real API call) ---")
-    row = df_test.iloc[0]
-    user_msg = (
-        build_user_message(row)
-        + "\n\nAnswer the question based on the passage."
-        + ANSWER_FORMAT
-    )
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_msg},
-    ]
-    r = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        max_tokens=150,
-        temperature=0,
-        logprobs=True,
-        top_logprobs=4,
-    )
-    text = r.choices[0].message.content or ""
-    predicted = extract_answer(text)
-    lp = extract_answer_logprobs(r)
-    conf = logprobs_to_confidence(lp, predicted)
-
-    print(f"Response     : {text[:120]}")
-    print(f"Predicted    : {predicted}")
-    print(f"Logprobs     : {lp}")
-    print(f"Confidence   : {conf:.4f}")
-    print("\nDry run complete. Logprob extraction verified.")
+    print("\nDry run complete.")
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────

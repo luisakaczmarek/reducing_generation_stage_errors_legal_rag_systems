@@ -8,7 +8,6 @@ import random
 import os
 from abc import ABC, abstractmethod
 
-import numpy as np
 import pandas as pd
 
 
@@ -43,40 +42,6 @@ def build_user_message(row):
     return "\n".join(parts)
 
 
-def extract_answer_logprobs(response) -> dict:
-    """
-    Extract log probabilities for tokens A, B, C, D from the first
-    generated token position. Returns dict with keys 'A','B','C','D'.
-    Missing letters get logprob of -100 (i.e. probability ~0).
-    """
-    result = {"A": -100.0, "B": -100.0, "C": -100.0, "D": -100.0}
-    try:
-        top_logprobs = response.choices[0].logprobs.content[0].top_logprobs
-        for entry in top_logprobs:
-            token = entry.token.strip().upper()
-            if token in result:
-                result[token] = entry.logprob
-    except (AttributeError, IndexError, TypeError):
-        pass
-    return result
-
-
-def logprobs_to_confidence(logprobs: dict, predicted_letter: str) -> float:
-    """
-    Convert log probability of the predicted letter to a probability (0-1).
-    Uses softmax over the four letter logprobs to normalise properly.
-    """
-    letters = ["A", "B", "C", "D"]
-    lp = np.array([logprobs.get(l, -100.0) for l in letters])
-    probs = np.exp(lp - np.max(lp))  # numerically stable softmax
-    probs = probs / probs.sum()
-    idx = (
-        letters.index(predicted_letter.upper())
-        if predicted_letter.upper() in letters
-        else 0
-    )
-    return float(probs[idx])
-
 
 def extract_answer(text):
     """Return first standalone A/B/C/D found, else 'PARSE_ERROR'."""
@@ -101,7 +66,7 @@ class BaseCondition(ABC):
         self.system_prompt = system_prompt
         self.model = model
 
-    def call_api(self, messages, max_tokens, temperature=0, logprobs=False, top_logprobs=None):
+    def call_api(self, messages, max_tokens, temperature=0):
         """Call OpenAI with exponential backoff on 429 errors."""
         import openai
 
@@ -111,11 +76,6 @@ class BaseCondition(ABC):
             max_tokens=max_tokens,
             temperature=temperature,
         )
-        # logprobs not supported on Groq; only add if using OpenAI
-        groq_base = "groq.com" in str(getattr(self.client, "base_url", ""))
-        if logprobs and not groq_base:
-            kwargs["logprobs"] = True
-            kwargs["top_logprobs"] = top_logprobs or 4
 
         for attempt in range(6):
             try:
@@ -180,7 +140,7 @@ class BaseCondition(ABC):
         ]
         if self.CONDITION_ID == 6:
             columns.append("raw_response_3")
-        columns += ["logprob_A", "logprob_B", "logprob_C", "logprob_D", "confidence"]
+            columns.append("confidence")
 
         mode = "a" if processed_idx else "w"
 
@@ -214,10 +174,6 @@ class BaseCondition(ABC):
                     "raw_response_1": result.get("raw_response_1", ""),
                     "raw_response_2": result.get("raw_response_2", ""),
                     "raw_response_3": result.get("raw_response_3", ""),
-                    "logprob_A": result.get("logprob_A"),
-                    "logprob_B": result.get("logprob_B"),
-                    "logprob_C": result.get("logprob_C"),
-                    "logprob_D": result.get("logprob_D"),
                     "confidence": result.get("confidence"),
                 }
                 writer.writerow(record)

@@ -125,12 +125,13 @@ def main():
     if not api_key:
         env_path = os.path.join(os.path.dirname(__file__), ".env")
         if os.path.exists(env_path):
-            for line in open(env_path):
-                line = line.strip()
-                if line.startswith("GROQ_API_KEY="):
-                    api_key = line.split("=", 1)[1].strip()
-                    os.environ["GROQ_API_KEY"] = api_key
-                    break
+            with open(env_path) as _env_f:
+                for line in _env_f:
+                    line = line.strip()
+                    if line.startswith("GROQ_API_KEY="):
+                        api_key = line.split("=", 1)[1].strip()
+                        os.environ["GROQ_API_KEY"] = api_key
+                        break
     if not api_key:
         sys.exit("ERROR: GROQ_API_KEY not set.")
 
@@ -221,14 +222,14 @@ def main():
     print("="*60)
 
     overall = df_out["failure_mode"].value_counts()
-    for fm in ["FM1", "FM2", "FM3", "PARSE_ERROR"]:
+    for fm in ["FM1", "FM2", "PARSE_ERROR"]:
         n = overall.get(fm, 0)
         print(f"  {fm}: {n:4d}  ({100*n/total:.1f}%)")
 
     print("\n--- By Subject ---")
     subjects = df_out["subject"].fillna("UNKNOWN").unique()
     # Header
-    header = f"{'Subject':<14}" + "".join(f"{'FM1':>8}{'FM2':>8}{'FM3':>8}{'N':>6}")
+    header = f"{'Subject':<14}" + "".join(f"{'FM1':>8}{'FM2':>8}{'N':>6}")
     print(header)
     print("-" * len(header))
 
@@ -237,8 +238,7 @@ def main():
         n = len(sub)
         fm1 = (sub["failure_mode"] == "FM1").sum()
         fm2 = (sub["failure_mode"] == "FM2").sum()
-        fm3 = (sub["failure_mode"] == "FM3").sum()
-        print(f"{subj:<14}  {100*fm1/n:5.1f}%  {100*fm2/n:5.1f}%  {100*fm3/n:5.1f}%  {n:4d}")
+        print(f"{subj:<14}  {100*fm1/n:5.1f}%  {100*fm2/n:5.1f}%  {n:4d}")
 
     print(f"\nSaved: {OUT_PATH}")
 
