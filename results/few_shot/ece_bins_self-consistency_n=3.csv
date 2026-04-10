@@ -1,4 +1,0 @@
-bin_lower,bin_upper,n,avg_confidence,avg_accuracy,gap,weight,overconfident
-0.3,0.4,1,0.3333,1.0,0.6667,0.0008,False
-0.6,0.7,56,0.6667,0.3929,0.2738,0.0469,True
-0.9,1.0,1136,1.0,0.8178,0.1822,0.9522,True
