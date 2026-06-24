@@ -273,4 +273,3 @@ FM2 dominates. The problem is not ignoring the passage — it is failing to reas
 - **Prompt sensitivity:** results may be sensitive to exact prompt wording — the most significant caveat
 - **Single model:** all main results are on Llama 3.3 70B (Groq API); findings may not generalise to other model families or sizes
 - **Answer-letter evaluation only:** a model may select the correct letter through flawed reasoning; qualitative analysis (N=20 manual inspection of Cond 3/7 failures) shows dominant modes are shallow reasoning steps (32%) and reasoning–conclusion mismatch (32%)
-- **Zero-shot vs. Zheng et al.:** direct numerical comparison to their reported ceiling figures should be made with caution — their setup used few-shot prompting
